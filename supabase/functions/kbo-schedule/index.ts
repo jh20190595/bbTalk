@@ -35,14 +35,15 @@ function parseGames(text: string, date: string): Game[] {
   const doneRegex = /<li>(.+?)\s+<b>(\d+)\s*:\s*(\d+)<\/b>\s+(.+?)\s+<img/g;
   let match;
   while ((match = doneRegex.exec(text)) !== null) {
-    const home_team = match[1].trim();
+    const away_team = match[1].trim();
+    const home_team = match[4].trim();
     games.push({
       date,
       home_team,
-      away_team: match[4].trim(),
+      away_team,
       stadium: HOME_STADIUM[home_team] ?? "",
-      home_score: parseInt(match[2], 10),
-      away_score: parseInt(match[3], 10),
+      home_score: parseInt(match[3], 10),
+      away_score: parseInt(match[2], 10),
       status: "done",
     });
   }
