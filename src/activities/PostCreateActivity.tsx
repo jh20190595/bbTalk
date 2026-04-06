@@ -4,6 +4,7 @@ import { useActivity } from '@stackflow/react'
 import { useFlow } from '@/stackflow'
 import { useCreatePost } from '@/hooks/usePosts'
 import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 import type { PollData } from '@/types/supabase'
 
 type Params = { boardType: 'general' | 'team' }
@@ -56,7 +57,7 @@ function PollCreator({ initial, onDone, onClose }: PollCreatorProps) {
     <div
       className="activity-slide-enter"
       style={{
-        position: 'fixed', inset: 0, background: '#fff', zIndex: 50,
+        position: 'fixed', inset: 0, background: '#fff', zIndex: 160,
         display: 'flex', flexDirection: 'column',
       }}
     >
@@ -196,13 +197,15 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
   const [content, setContent] = useState('')
   const [poll, setPoll] = useState<PollData | null>(null)
   const [showPollCreator, setShowPollCreator] = useState(false)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const slideClass =
     activity.transitionState === 'enter-active' ? 'activity-slide-enter' :
     activity.transitionState === 'exit-active'  ? 'activity-slide-exit'  : ''
 
-  const isDirty = title.trim().length > 0 || content.trim().length > 0 || poll !== null
+  const isDirty = title.trim().length > 0 || content.trim().length > 0 || poll !== null || photos.length > 0
 
   function handleBack() {
     if (isDirty) {
@@ -212,10 +215,45 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
     }
   }
 
-  function handleSubmit() {
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    setPhotos(prev => [...prev, ...files].slice(0, 2))
+    e.target.value = ''
+  }
+
+  function removePhoto(index: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleSubmit() {
     if (!user || !title.trim() || !content.trim()) return
+
+    let photoUrls: string[] = []
+    if (photos.length > 0) {
+      setIsUploading(true)
+      try {
+        photoUrls = await Promise.all(photos.map(async (file) => {
+          const ext = file.name.split('.').pop() ?? 'jpg'
+          const path = `${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+          const { error } = await supabase.storage.from('post-images').upload(path, file)
+          if (error) throw error
+          const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path)
+          return publicUrl
+        }))
+      } catch {
+        alert('사진 업로드에 실패했습니다.')
+        setIsUploading(false)
+        return
+      }
+      setIsUploading(false)
+    }
+
     createPost(
-      { user_id: user.id, team, topic: topic ?? undefined, title: title.trim(), content: content.trim(), poll },
+      {
+        user_id: user.id, team, topic: topic ?? undefined,
+        title: title.trim(), content: content.trim(),
+        poll, photos: photoUrls.length > 0 ? photoUrls : null,
+      },
       { onSuccess: () => pop() },
     )
   }
@@ -227,7 +265,7 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
       <div
         className={slideClass}
         style={{
-          position: 'fixed', inset: 0, background: '#fff', zIndex: 10,
+          position: 'fixed', inset: 0, background: '#fff', zIndex: 110,
           display: 'flex', flexDirection: 'column',
         }}
       >
@@ -241,20 +279,20 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
             {boardLabel}
           </span>
           <button
-            onClick={handleSubmit}
-            disabled={isPending || !title.trim() || !content.trim()}
+            onClick={() => void handleSubmit()}
+            disabled={isPending || isUploading || !title.trim() || !content.trim()}
             style={{
               ...btnReset,
               color: title.trim() && content.trim() ? '#3182ce' : '#aaa',
               fontWeight: 700, fontSize: 15,
             }}
           >
-            {isPending ? '등록 중' : '완료'}
+            {isUploading ? '업로드 중' : isPending ? '등록 중' : '완료'}
           </button>
         </header>
 
         {/* 스크롤 영역 */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 56 }}>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {/* 주제 선택 */}
           <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: '1px solid #f5f5f5' }}>
             {TOPICS.map(t => (
@@ -309,14 +347,41 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
               />
             </div>
           )}
+
+          {/* 사진 미리보기 */}
+          {photos.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, padding: '8px 16px' }}>
+              {photos.map((file, i) => (
+                <div key={i} style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`사진 ${i + 1}`}
+                    style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    style={{
+                      position: 'absolute', top: -6, right: -6,
+                      width: 20, height: 20, borderRadius: '50%',
+                      background: '#333', color: '#fff', border: 'none',
+                      cursor: 'pointer', fontSize: 11, lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 하단 툴바 */}
         <div style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
+          flexShrink: 0,
           display: 'flex', alignItems: 'center', gap: 4,
           padding: '8px 12px', borderTop: '1px solid #e2e8f0',
-          background: '#fff', zIndex: 20,
+          background: '#fff',
         }}>
           <input
             ref={fileInputRef}
@@ -324,14 +389,22 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
             accept="image/*"
             multiple
             style={{ display: 'none' }}
-            onChange={() => {/* 추후 구현 */}}
+            onChange={handlePhotoChange}
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
-            style={{ ...btnReset, color: '#555', fontSize: 22 }}
-            title="사진 추가"
+            onClick={() => photos.length < 2 && fileInputRef.current?.click()}
+            style={{
+              ...btnReset, fontSize: 22,
+              color: photos.length >= 2 ? '#ccc' : '#555',
+              cursor: photos.length >= 2 ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 2,
+            }}
+            title={photos.length >= 2 ? '사진은 최대 2장까지 가능합니다' : '사진 추가'}
           >
             &#128247;
+            <span style={{ fontSize: 11, color: photos.length >= 2 ? '#ccc' : '#888' }}>
+              {photos.length}/2
+            </span>
           </button>
           <button
             onClick={() => !poll && setShowPollCreator(true)}

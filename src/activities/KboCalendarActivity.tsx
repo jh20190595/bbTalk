@@ -21,6 +21,26 @@ const TEAM_SHORT: Record<string, string> = {
   '키움 히어로즈': '키움',
 }
 
+// 팀 단축명 → 홈구장 키워드
+const HOME_STADIUM: Record<string, string> = {
+  'KIA': '광주',
+  '한화': '대전',
+  'KT': '수원',
+  '두산': '잠실',
+  'LG': '잠실',
+  '롯데': '사직',
+  '삼성': '대구',
+  '키움': '고척',
+  'SSG': '문학',
+  'NC': '창원',
+}
+
+function isHomeStadium(stadium: string, teamShort: string): boolean {
+  const keyword = HOME_STADIUM[teamShort]
+  if (!keyword) return false
+  return stadium.includes(keyword)
+}
+
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
   const firstDay = new Date(year, month - 1, 1).getDay()
   const daysInMonth = new Date(year, month, 0).getDate()
@@ -41,19 +61,27 @@ function formatDate(dateStr: string) {
   return `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`
 }
 
-function GameItem({ game }: { game: Game }) {
+function GameItem({ game, myTeamShort }: { game: Game; myTeamShort: string | null }) {
   const isDone = game.status === 'done'
   const homeWins = isDone && (game.home_score ?? 0) > (game.away_score ?? 0)
   const awayWins = isDone && (game.away_score ?? 0) > (game.home_score ?? 0)
+  const isHome = myTeamShort !== null && isHomeStadium(game.stadium, myTeamShort)
   return (
     <div style={{
       fontSize: 10,
       padding: '2px 4px',
       marginBottom: 2,
       borderRadius: 4,
-      background: isDone ? '#e8f4fd' : '#f0f0f0',
+      background: isHome ? '#ebf8ff' : isDone ? '#e8f4fd' : '#f0f0f0',
       lineHeight: 1.4,
+      border: isHome ? '1px solid #bee3f8' : 'none',
     }}>
+      {isHome && (
+        <span style={{
+          display: 'inline-block', background: '#3182ce', color: '#fff',
+          fontSize: 8, padding: '0 3px', borderRadius: 2, marginRight: 2, verticalAlign: 'middle',
+        }}>홈</span>
+      )}
       {isDone ? (
         <span>
           {homeWins && <b style={{ color: '#e53e3e', marginRight: 2 }}>W</b>}
@@ -70,27 +98,33 @@ function GameItem({ game }: { game: Game }) {
   )
 }
 
-function ModalGameItem({ game }: { game: Game }) {
+function ModalGameItem({ game, myTeamShort }: { game: Game; myTeamShort: string | null }) {
   const isDone = game.status === 'done'
   const homeWins = isDone && (game.home_score ?? 0) > (game.away_score ?? 0)
   const awayWins = isDone && (game.away_score ?? 0) > (game.home_score ?? 0)
+  const isMyHome = myTeamShort !== null && isHomeStadium(game.stadium, myTeamShort)
+  const isMyAway = myTeamShort !== null && !isMyHome && (game.home_team === myTeamShort || game.away_team === myTeamShort)
   return (
     <div style={{
       padding: '10px 12px',
       borderRadius: 8,
-      background: isDone ? '#e8f4fd' : '#f7f7f7',
+      background: isMyHome ? '#ebf8ff' : isDone ? '#e8f4fd' : '#f7f7f7',
       fontSize: 14,
+      border: isMyHome ? '1px solid #bee3f8' : 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           {homeWins && <b style={{ color: '#e53e3e', fontSize: 12 }}>W</b>}
-          <span style={{ fontWeight: 600 }}>{game.home_team}</span>
+          {isMyHome && (
+            <span style={{ background: '#3182ce', color: '#fff', fontSize: 9, padding: '1px 4px', borderRadius: 3 }}>홈</span>
+          )}
+          <span style={{ fontWeight: 600, color: isMyHome ? '#3182ce' : '#333' }}>{game.home_team}</span>
         </div>
         <div style={{ width: 70, textAlign: 'center', color: '#555', fontSize: 13, fontWeight: isDone ? 700 : 400 }}>
           {isDone ? `${game.home_score} : ${game.away_score}` : 'vs'}
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4 }}>
-          <span style={{ fontWeight: 600 }}>{game.away_team}</span>
+          <span style={{ fontWeight: 600, color: isMyAway ? '#3182ce' : '#333' }}>{game.away_team}</span>
           {awayWins && <b style={{ color: '#e53e3e', fontSize: 12 }}>W</b>}
         </div>
       </div>
@@ -104,10 +138,11 @@ function ModalGameItem({ game }: { game: Game }) {
 interface DayModalProps {
   dateStr: string
   games: Game[]
+  myTeamShort: string | null
   onClose: () => void
 }
 
-function DayModal({ dateStr, games, onClose }: DayModalProps) {
+function DayModal({ dateStr, games, myTeamShort, onClose }: DayModalProps) {
   return (
     <div
       style={{
@@ -138,7 +173,7 @@ function DayModal({ dateStr, games, onClose }: DayModalProps) {
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {games.map((g, i) => <ModalGameItem key={i} game={g} />)}
+          {games.map((g, i) => <ModalGameItem key={i} game={g} myTeamShort={myTeamShort} />)}
         </div>
       </div>
     </div>
@@ -295,13 +330,14 @@ const KboCalendarActivity: ActivityComponentType = () => {
               const featured = myTeamGame(dayGames)
               const hasGames = dayGames.length > 0
               const isMenuOpen = menuDay === dateStr
+              const isMyHomeGame = featured !== undefined && myTeamShort !== null && isHomeStadium(featured.stadium, myTeamShort)
 
               return (
                 <div key={i} style={{
                   minHeight: 90,
                   padding: 4,
-                  background: isToday ? '#fffbea' : '#fff',
-                  border: isToday ? '1px solid #f6c90e' : '1px solid #eee',
+                  background: isToday ? '#fffbea' : isMyHomeGame ? '#ebf8ff' : '#fff',
+                  border: isToday ? '1px solid #f6c90e' : isMyHomeGame ? '1px solid #bee3f8' : '1px solid #eee',
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'visible',
@@ -360,7 +396,7 @@ const KboCalendarActivity: ActivityComponentType = () => {
                         )}
                       </div>
 
-                      {featured && <GameItem game={featured} />}
+                      {featured && <GameItem game={featured} myTeamShort={myTeamShort} />}
 
                       {hasGames && (
                         <button
@@ -392,6 +428,7 @@ const KboCalendarActivity: ActivityComponentType = () => {
         <DayModal
           dateStr={modalDate}
           games={modalGames}
+          myTeamShort={myTeamShort}
           onClose={() => setModalDate(null)}
         />
       )}

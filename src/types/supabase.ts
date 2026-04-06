@@ -31,6 +31,7 @@ export interface Post {
   title: string
   content: string
   poll?: PollData | null
+  photos?: string[] | null
   created_at: string
   profiles?: { nickname: string }
 }
