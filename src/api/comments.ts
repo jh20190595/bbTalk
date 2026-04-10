@@ -22,6 +22,11 @@ export async function fetchComments(postId: string): Promise<Comment[]> {
   return attachNicknames(data)
 }
 
+export async function updateComment(id: string, content: string): Promise<void> {
+  const { error } = await supabase.from('comments').update({ content }).eq('id', id)
+  if (error) throw error
+}
+
 export async function deleteComment(id: string): Promise<void> {
   const { error } = await supabase.from('comments').delete().eq('id', id)
   if (error) throw error

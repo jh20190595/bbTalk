@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import type { ActivityComponentType } from '@stackflow/react'
 import { useActivity } from '@stackflow/react'
 import { useFlow } from '@/stackflow'
-import { usePost, useDeletePost } from '@/hooks/usePosts'
+import { usePost, useDeletePost, useUpdatePost } from '@/hooks/usePosts'
 import { useComments, useCreateComment } from '@/hooks/useComments'
 import { useReaction, useToggleReaction } from '@/hooks/useReactions'
 import { useAuthStore } from '@/store/authStore'
@@ -21,12 +21,16 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
   const { data: post, isLoading, isError } = usePost(params.id)
   const { data: comments } = useComments(params.id)
   const { mutate: deletePost } = useDeletePost()
+  const { mutate: updatePost, isPending: isUpdatePending } = useUpdatePost()
   const { mutate: createComment, isPending: isCommentPending } = useCreateComment()
   const { data: reaction } = useReaction(params.id)
   const { mutate: toggleReaction, isPending: isReactionPending } = useToggleReaction()
 
   const [commentText, setCommentText] = useState('')
   const [replyingTo, setReplyingTo] = useState<{ id: string; nickname: string } | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const commentInputRef = useRef<HTMLInputElement>(null)
 
@@ -47,6 +51,20 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
       void navigator.clipboard.writeText(window.location.href)
       alert('링크가 복사되었습니다.')
     }
+  }
+
+  function handleEditOpen() {
+    setEditTitle(post?.title ?? '')
+    setEditContent(post?.content ?? '')
+    setEditMode(true)
+  }
+
+  function handleEditSave() {
+    if (!editTitle.trim() || !editContent.trim()) return
+    updatePost(
+      { id: params.id, title: editTitle.trim(), content: editContent.trim() },
+      { onSuccess: () => setEditMode(false) },
+    )
   }
 
   function handleDelete() {
@@ -96,29 +114,79 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '0 8px', height: 52, borderBottom: '1px solid #e2e8f0', flexShrink: 0,
       }}>
-        <button
-          onClick={() => pop()}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 20, lineHeight: 1, color: '#333' }}
-        >
-          &#8249;
-        </button>
-        <span style={{ flex: 1, fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {post.title}
-        </span>
-        <button
-          onClick={handleShare}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 16, lineHeight: 1, color: '#555' }}
-        >
-          &#8679;
-        </button>
-        <MoreMenu
-          onReport={() => alert('신고가 접수되었습니다.')}
-          onBlock={() => alert('차단되었습니다.')}
-        />
+        {editMode ? (
+          <>
+            <button
+              onClick={() => setEditMode(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 14, color: '#888' }}
+            >
+              취소
+            </button>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 15, textAlign: 'center' }}>게시글 수정</span>
+            <button
+              onClick={handleEditSave}
+              disabled={isUpdatePending || !editTitle.trim() || !editContent.trim()}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
+                fontSize: 14, fontWeight: 700,
+                color: editTitle.trim() && editContent.trim() ? '#3182ce' : '#aaa',
+              }}
+            >
+              {isUpdatePending ? '저장 중...' : '완료'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => pop()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 20, lineHeight: 1, color: '#333' }}
+            >
+              &#8249;
+            </button>
+            <span style={{ flex: 1, fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {post.title}
+            </span>
+            <button
+              onClick={handleShare}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 16, lineHeight: 1, color: '#555' }}
+            >
+              &#8679;
+            </button>
+            <MoreMenu
+              onReport={() => alert('신고가 접수되었습니다.')}
+              onBlock={() => alert('차단되었습니다.')}
+            />
+          </>
+        )}
       </header>
 
+      {/* 수정 폼 */}
+      {editMode && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            placeholder="제목"
+            style={{
+              width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+              fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          <textarea
+            value={editContent}
+            onChange={e => setEditContent(e.target.value)}
+            placeholder="내용"
+            rows={12}
+            style={{
+              width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+              fontSize: 15, lineHeight: 1.7, outline: 'none', resize: 'none', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      )}
+
       {/* 스크롤 영역 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+      {!editMode && <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
         {/* 글 본문 */}
         <article style={{ paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #e2e8f0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -136,12 +204,20 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
               </time>
             </div>
             {user?.id === post.user_id && (
-              <button
-                onClick={handleDelete}
-                style={{ fontSize: 13, color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                삭제
-              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  onClick={handleEditOpen}
+                  style={{ fontSize: 13, color: '#3182ce', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  수정
+                </button>
+                <button
+                  onClick={handleDelete}
+                  style={{ fontSize: 13, color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  삭제
+                </button>
+              </div>
             )}
           </div>
           <h2 style={{ margin: '0 0 12px', fontSize: 18, textAlign: 'left' }}>{post.title}</h2>
@@ -201,10 +277,10 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
           ))}
           <div ref={commentsEndRef} />
         </div>
-      </div>
+      </div>}
 
       {/* 댓글 입력창 */}
-      {!isReadonly && (
+      {!isReadonly && !editMode && (
         <form
           onSubmit={handleCommentSubmit}
           style={{

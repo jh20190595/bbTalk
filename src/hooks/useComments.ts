@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchComments, createComment, deleteComment } from '@/api/comments'
+import { fetchComments, createComment, updateComment, deleteComment } from '@/api/comments'
 import { fetchCommentReaction, toggleCommentReaction } from '@/api/commentReactions'
 import { useAuthStore } from '@/store/authStore'
 import type { Comment } from '@/types/supabase'
@@ -18,6 +18,17 @@ export function useCreateComment() {
       createComment(comment),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ['comments', data.post_id] })
+    },
+  })
+}
+
+export function useUpdateComment(postId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      updateComment(id, content),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['comments', postId] })
     },
   })
 }

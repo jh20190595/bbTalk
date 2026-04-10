@@ -20,7 +20,7 @@ const MyPageActivity: ActivityComponentType = () => {
         </div>
         <div style={{ padding: 16, background: '#f7f7f7', borderRadius: 8 }}>
           <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>응원 팀</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent : 'center', gap: 10 }}>
             {user?.favorite_team && <TeamUniform team={user.favorite_team} size={44} />}
             <span style={{ fontWeight: 700, fontSize: 15 }}>{user?.favorite_team}</span>
           </div>

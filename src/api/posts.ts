@@ -34,6 +34,11 @@ export async function createPost(
   return data
 }
 
+export async function updatePost(id: string, fields: { title: string; content: string }): Promise<void> {
+  const { error } = await supabase.from('posts').update(fields).eq('id', id)
+  if (error) throw error
+}
+
 export async function deletePost(id: string): Promise<void> {
   const { error } = await supabase.from('posts').delete().eq('id', id)
   if (error) throw error
