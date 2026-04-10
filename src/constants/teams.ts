@@ -1,3 +1,16 @@
+export const TEAM_COLOR: Record<string, { bg: string; text: string }> = {
+  'KIA':  { bg: '#C8102E', text: '#fff' },
+  '삼성': { bg: '#1A5BA6', text: '#fff' },
+  'LG':   { bg: '#C8002D', text: '#fff' },
+  '두산': { bg: '#131230', text: '#fff' },
+  'KT':   { bg: '#000000', text: '#fff' },
+  'SSG':  { bg: '#CE1126', text: '#FFD700' },
+  '롯데': { bg: '#041E42', text: '#fff' },
+  '한화': { bg: '#F37321', text: '#fff' },
+  'NC':   { bg: '#1D5BA6', text: '#BFA054' },
+  '키움': { bg: '#820024', text: '#fff' },
+}
+
 export const KBO_TEAMS = [
   'KIA 타이거즈',
   '삼성 라이온즈',

@@ -2,6 +2,7 @@ import type { ActivityComponentType } from '@stackflow/react'
 import { useAuthStore } from '@/store/authStore'
 import { signOut } from '@/api/auth'
 import { TabBar } from '@/components/TabBar'
+import { TeamUniform } from '@/components/TeamUniform'
 
 const MyPageActivity: ActivityComponentType = () => {
   const user = useAuthStore((s) => s.user)
@@ -18,8 +19,11 @@ const MyPageActivity: ActivityComponentType = () => {
           <div style={{ fontWeight: 600 }}>{user?.nickname}</div>
         </div>
         <div style={{ padding: 16, background: '#f7f7f7', borderRadius: 8 }}>
-          <div style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>응원 팀</div>
-          <div style={{ fontWeight: 600 }}>{user?.favorite_team}</div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>응원 팀</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {user?.favorite_team && <TeamUniform team={user.favorite_team} size={44} />}
+            <span style={{ fontWeight: 700, fontSize: 15 }}>{user?.favorite_team}</span>
+          </div>
         </div>
 
         <button

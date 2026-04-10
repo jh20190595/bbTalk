@@ -80,7 +80,10 @@ const PostCreateActivity: ActivityComponentType<Params> = ({ params }) => {
         title: title.trim(), content: content.trim(),
         poll, photos: photoUrls.length > 0 ? photoUrls : null,
       },
-      { onSuccess: () => pop() },
+      {
+        onSuccess: () => pop(),
+        onError: () => alert('게시글 등록에 실패했습니다. 다시 시도해 주세요.'),
+      },
     )
   }
 

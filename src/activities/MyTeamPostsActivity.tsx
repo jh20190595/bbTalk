@@ -6,6 +6,7 @@ import { usePosts } from '@/hooks/usePosts'
 import { useAuthStore } from '@/store/authStore'
 import { TabBar } from '@/components/TabBar'
 import { SearchOverlay } from '@/components/SearchOverlay'
+import { TeamUniform } from '@/components/TeamUniform'
 import type { Post } from '@/types/supabase'
 
 const TOPIC_COLOR: Record<string, { bg: string; text: string }> = {
@@ -72,12 +73,17 @@ const MyTeamPostsActivity: ActivityComponentType = () => {
         background: '#fff', borderBottom: '1px solid #eee',
         height: 52, display: 'flex', alignItems: 'center', padding: '0 16px',
       }}>
-        <h1 style={{
-          flex: 1, margin: 0, fontSize: 16, fontWeight: 700,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {searchQuery.trim() ? `"${searchQuery}" 검색 결과` : title}
-        </h1>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          {!searchQuery.trim() && user?.favorite_team && (
+            <TeamUniform team={user.favorite_team} size={28} />
+          )}
+          <h1 style={{
+            margin: 0, fontSize: 16, fontWeight: 700,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {searchQuery.trim() ? `"${searchQuery}" 검색 결과` : title}
+          </h1>
+        </div>
         <button
           onClick={() => setSearchOpen(true)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', color: '#333' }}

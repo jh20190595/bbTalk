@@ -147,6 +147,19 @@ const PostDetailActivity: ActivityComponentType<Params> = ({ params }) => {
           <h2 style={{ margin: '0 0 12px', fontSize: 18, textAlign: 'left' }}>{post.title}</h2>
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap', textAlign: 'left' }}>{post.content}</p>
 
+          {post.photos && post.photos.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              {post.photos.map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`사진 ${i + 1}`}
+                  style={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 8, border: '1px solid #e2e8f0' }}
+                />
+              ))}
+            </div>
+          )}
+
           {post.poll && <PollView poll={post.poll} />}
 
           {isReadonly && (

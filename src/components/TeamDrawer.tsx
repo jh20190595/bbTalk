@@ -1,4 +1,5 @@
 import { KBO_TEAMS } from '@/constants/teams'
+import { TeamUniform } from '@/components/TeamUniform'
 
 interface TeamDrawerProps {
   favoriteTeam: string | undefined
@@ -38,13 +39,15 @@ export function TeamDrawer({ favoriteTeam, selectedTeam, onSelect, onClose }: Te
                 key={item.label}
                 onClick={() => { onSelect(item.value); onClose() }}
                 style={{
-                  display: 'block', width: '100%', padding: '13px 16px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '11px 16px',
                   textAlign: 'left', background: 'none', border: 'none',
                   borderBottom: '1px solid #f5f5f5', cursor: 'pointer',
                   fontSize: 14, fontWeight: isActive ? 700 : 400,
                   color: isActive ? '#3182ce' : '#333',
                 }}
               >
+                {item.value && <TeamUniform team={item.value} size={28} />}
                 {item.label}
               </button>
             )
