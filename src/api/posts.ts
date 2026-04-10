@@ -38,3 +38,12 @@ export async function deletePost(id: string): Promise<void> {
   const { error } = await supabase.from('posts').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function uploadPostPhoto(userId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`
+  const { error } = await supabase.storage.from('post-images').upload(path, file)
+  if (error) throw error
+  const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(path)
+  return publicUrl
+}

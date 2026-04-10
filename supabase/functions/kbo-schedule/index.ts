@@ -7,7 +7,7 @@ interface Game {
   stadium: string;
   home_score: number | null;
   away_score: number | null;
-  status: "scheduled" | "done";
+  status: "scheduled" | "done" | "cancelled";
 }
 
 const HOME_STADIUM: Record<string, string> = {
@@ -59,6 +59,20 @@ function parseGames(text: string, date: string): Game[] {
       home_score: null,
       away_score: null,
       status: "scheduled",
+    });
+  }
+
+  // Rain-cancelled games: <li class='rainCancel'>TEAM1 : TEAM2 [STADIUM]</li>
+  const cancelledRegex = /<li class='rainCancel'>([^<[\]]+?)\s*:\s*([^<[\]]+?)\s*\[([^\]]+?)\]<\/li>/g;
+  while ((match = cancelledRegex.exec(text)) !== null) {
+    games.push({
+      date,
+      home_team: match[1].trim(),
+      away_team: match[2].trim(),
+      stadium: match[3].trim(),
+      home_score: null,
+      away_score: null,
+      status: "cancelled",
     });
   }
 

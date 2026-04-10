@@ -4,181 +4,14 @@ import { useKboSchedule } from '@/hooks/useKboSchedule'
 import type { Game } from '@/hooks/useKboSchedule'
 import { useAuthStore } from '@/store/authStore'
 import { TabBar } from '@/components/TabBar'
-import { supabase } from '@/lib/supabase'
+import { GameItem } from '@/components/GameItem'
+import { DayModal } from '@/components/DayModal'
+import { createJikgwanRecord } from '@/api/jikgwan'
+import { TEAM_SHORT, isHomeStadium } from '@/constants/teams'
+import { buildCalendarGrid, toDateStr } from '@/utils/calendar'
+import { RankingDrawer } from '@/components/RankingDrawer'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
-
-const TEAM_SHORT: Record<string, string> = {
-  'KIA 타이거즈': 'KIA',
-  '삼성 라이온즈': '삼성',
-  'LG 트윈스': 'LG',
-  '두산 베어스': '두산',
-  'KT 위즈': 'KT',
-  'SSG 랜더스': 'SSG',
-  '롯데 자이언츠': '롯데',
-  '한화 이글스': '한화',
-  'NC 다이노스': 'NC',
-  '키움 히어로즈': '키움',
-}
-
-// 팀 단축명 → 홈구장 키워드
-const HOME_STADIUM: Record<string, string> = {
-  'KIA': '광주',
-  '한화': '대전',
-  'KT': '수원',
-  '두산': '잠실',
-  'LG': '잠실',
-  '롯데': '사직',
-  '삼성': '대구',
-  '키움': '고척',
-  'SSG': '문학',
-  'NC': '창원',
-}
-
-function isHomeStadium(stadium: string, teamShort: string): boolean {
-  const keyword = HOME_STADIUM[teamShort]
-  if (!keyword) return false
-  return stadium.includes(keyword)
-}
-
-function buildCalendarGrid(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(year, month - 1, 1).getDay()
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const cells: (number | null)[] = Array(firstDay).fill(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
-}
-
-function toDateStr(year: number, month: number, day: number) {
-  return `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`
-}
-
-function formatDate(dateStr: string) {
-  const y = dateStr.slice(0, 4)
-  const m = dateStr.slice(4, 6)
-  const d = dateStr.slice(6, 8)
-  return `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`
-}
-
-function GameItem({ game, myTeamShort }: { game: Game; myTeamShort: string | null }) {
-  const isDone = game.status === 'done'
-  const homeWins = isDone && (game.home_score ?? 0) > (game.away_score ?? 0)
-  const awayWins = isDone && (game.away_score ?? 0) > (game.home_score ?? 0)
-  const isHome = myTeamShort !== null && isHomeStadium(game.stadium, myTeamShort)
-  return (
-    <div style={{
-      fontSize: 10,
-      padding: '2px 4px',
-      marginBottom: 2,
-      borderRadius: 4,
-      background: isHome ? '#ebf8ff' : isDone ? '#e8f4fd' : '#f0f0f0',
-      lineHeight: 1.4,
-      border: isHome ? '1px solid #bee3f8' : 'none',
-    }}>
-      {isHome && (
-        <span style={{
-          display: 'inline-block', background: '#3182ce', color: '#fff',
-          fontSize: 8, padding: '0 3px', borderRadius: 2, marginRight: 2, verticalAlign: 'middle',
-        }}>홈</span>
-      )}
-      {isDone ? (
-        <span>
-          {homeWins && <b style={{ color: '#e53e3e', marginRight: 2 }}>W</b>}
-          <b>{game.home_team}</b> {game.home_score}:{game.away_score} {game.away_team}
-          {awayWins && <b style={{ color: '#e53e3e', marginLeft: 2 }}>W</b>}
-        </span>
-      ) : (
-        <span>
-          {game.home_team} vs {game.away_team}
-          {game.stadium ? <span style={{ color: '#888' }}> [{game.stadium}]</span> : null}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function ModalGameItem({ game, myTeamShort }: { game: Game; myTeamShort: string | null }) {
-  const isDone = game.status === 'done'
-  const homeWins = isDone && (game.home_score ?? 0) > (game.away_score ?? 0)
-  const awayWins = isDone && (game.away_score ?? 0) > (game.home_score ?? 0)
-  const isMyHome = myTeamShort !== null && isHomeStadium(game.stadium, myTeamShort)
-  const isMyAway = myTeamShort !== null && !isMyHome && (game.home_team === myTeamShort || game.away_team === myTeamShort)
-  return (
-    <div style={{
-      padding: '10px 12px',
-      borderRadius: 8,
-      background: isMyHome ? '#ebf8ff' : isDone ? '#e8f4fd' : '#f7f7f7',
-      fontSize: 14,
-      border: isMyHome ? '1px solid #bee3f8' : 'none',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          {homeWins && <b style={{ color: '#e53e3e', fontSize: 12 }}>W</b>}
-          {isMyHome && (
-            <span style={{ background: '#3182ce', color: '#fff', fontSize: 9, padding: '1px 4px', borderRadius: 3 }}>홈</span>
-          )}
-          <span style={{ fontWeight: 600, color: isMyHome ? '#3182ce' : '#333' }}>{game.home_team}</span>
-        </div>
-        <div style={{ width: 70, textAlign: 'center', color: '#555', fontSize: 13, fontWeight: isDone ? 700 : 400 }}>
-          {isDone ? `${game.home_score} : ${game.away_score}` : 'vs'}
-        </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4 }}>
-          <span style={{ fontWeight: 600, color: isMyAway ? '#3182ce' : '#333' }}>{game.away_team}</span>
-          {awayWins && <b style={{ color: '#e53e3e', fontSize: 12 }}>W</b>}
-        </div>
-      </div>
-      {game.stadium && (
-        <div style={{ textAlign: 'center', fontSize: 11, color: '#888', marginTop: 4 }}>[{game.stadium}]</div>
-      )}
-    </div>
-  )
-}
-
-interface DayModalProps {
-  dateStr: string
-  games: Game[]
-  myTeamShort: string | null
-  onClose: () => void
-}
-
-function DayModal({ dateStr, games, myTeamShort, onClose }: DayModalProps) {
-  return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'flex-end',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: '100%',
-          background: '#fff',
-          borderRadius: '16px 16px 0 0',
-          padding: '20px 16px 40px',
-          maxHeight: '70vh',
-          overflowY: 'auto',
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0, flex: 1, fontSize: 16 }}>{formatDate(dateStr)} 전체 경기</h3>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#555' }}
-          >
-            ✕
-          </button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {games.map((g, i) => <ModalGameItem key={i} game={g} myTeamShort={myTeamShort} />)}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -189,6 +22,7 @@ const KboCalendarActivity: ActivityComponentType = () => {
   const [modalDate, setModalDate] = useState<string | null>(null)
   const [menuDay, setMenuDay] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
+  const [rankingOpen, setRankingOpen] = useState(false)
 
   const uploadDateRef = useRef<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -232,23 +66,11 @@ const KboCalendarActivity: ActivityComponentType = () => {
     if (!file || !user) return
 
     setUploadStatus('uploading')
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${user.id}/${uploadDateRef.current}_${Date.now()}.${ext}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('jikgwan')
-      .upload(path, file)
-
-    if (uploadError) {
-      setUploadStatus('error')
-    } else {
-      const { data: { publicUrl } } = supabase.storage.from('jikgwan').getPublicUrl(path)
-      await supabase.from('jikgwan_records').insert({
-        user_id: user.id,
-        game_date: uploadDateRef.current,
-        photo_url: publicUrl,
-      })
+    try {
+      await createJikgwanRecord(user.id, uploadDateRef.current, file)
       setUploadStatus('success')
+    } catch {
+      setUploadStatus('error')
     }
 
     e.target.value = ''
@@ -259,7 +81,6 @@ const KboCalendarActivity: ActivityComponentType = () => {
 
   return (
     <div style={{ paddingBottom: 56 }}>
-      {/* 숨겨진 파일 입력 (카메라) */}
       <input
         ref={fileInputRef}
         type="file"
@@ -269,7 +90,6 @@ const KboCalendarActivity: ActivityComponentType = () => {
         onChange={handlePhotoCapture}
       />
 
-      {/* 업로드 상태 토스트 */}
       {uploadStatus !== 'idle' && (
         <div style={{
           position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
@@ -283,30 +103,29 @@ const KboCalendarActivity: ActivityComponentType = () => {
         </div>
       )}
 
-      {/* 메뉴 열려있을 때 바깥 클릭 닫기용 backdrop */}
       {menuDay && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 250 }}
-          onClick={() => setMenuDay(null)}
-        />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setMenuDay(null)} />
       )}
 
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: '24px 16px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, gap: 12 }}>
-          <button onClick={prevMonth} style={{ padding: '4px 10px' }}>‹</button>
+          <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 20, lineHeight: 1, color: '#333' }}>‹</button>
           <h2 style={{ margin: 0, flex: 1, textAlign: 'center', fontSize: 18 }}>
             {year}년 {month}월 KBO 일정
           </h2>
-          <button onClick={nextMonth} style={{ padding: '4px 10px' }}>›</button>
+          <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 20, lineHeight: 1, color: '#333' }}>›</button>
+          <button
+            onClick={() => setRankingOpen(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', fontSize: 13, color: '#3182ce', fontWeight: 700, lineHeight: 1 }}
+          >
+            순위
+          </button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, marginBottom: 1 }}>
           {DAYS.map(d => (
             <div key={d} style={{
-              textAlign: 'center',
-              padding: '6px 0',
-              fontWeight: 600,
-              fontSize: 13,
+              textAlign: 'center', padding: '6px 0', fontWeight: 600, fontSize: 13,
               color: d === '일' ? '#e53e3e' : d === '토' ? '#3182ce' : '#333',
               background: '#f7f7f7',
             }}>
@@ -334,58 +153,43 @@ const KboCalendarActivity: ActivityComponentType = () => {
 
               return (
                 <div key={i} style={{
-                  minHeight: 90,
-                  padding: 4,
+                  minHeight: 90, padding: 4, position: 'relative', overflow: 'visible',
                   background: isToday ? '#fffbea' : isMyHomeGame ? '#ebf8ff' : '#fff',
                   border: isToday ? '1px solid #f6c90e' : isMyHomeGame ? '1px solid #bee3f8' : '1px solid #eee',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'visible',
-                  position: 'relative',
+                  display: 'flex', flexDirection: 'column',
                 }}>
                   {day !== null && (
                     <>
-                      {/* 날짜 숫자 + ⋮ 버튼 */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span style={{
-                          fontSize: 12,
-                          fontWeight: isToday ? 700 : 400,
+                          fontSize: 12, fontWeight: isToday ? 700 : 400,
                           color: colIndex === 0 ? '#e53e3e' : colIndex === 6 ? '#3182ce' : '#333',
                         }}>
                           {day}
                         </span>
-
                         {hasGames && isPast && (
                           <div style={{ position: 'relative' }}>
                             <button
                               onClick={e => { e.stopPropagation(); setMenuDay(isMenuOpen ? null : dateStr) }}
                               style={{
                                 background: 'none', border: 'none', cursor: 'pointer',
-                                padding: '0 2px', fontSize: 11, lineHeight: 1,
-                                color: '#aaa', letterSpacing: '-1px',
+                                padding: '0 2px', fontSize: 11, lineHeight: 1, color: '#aaa', letterSpacing: '-1px',
                               }}
                             >
                               &#8942;
                             </button>
                             {isMenuOpen && (
                               <div style={{
-                                position: 'absolute', right: 0, top: '100%',
-                                zIndex: 300,
-                                background: '#fff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: 8,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                minWidth: 110,
-                                overflow: 'hidden',
+                                position: 'absolute', right: 0, top: '100%', zIndex: 300,
+                                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: 110, overflow: 'hidden',
                               }}>
                                 <button
                                   onClick={e => { e.stopPropagation(); startJikgwan(dateStr) }}
                                   style={{
-                                    display: 'block', width: '100%',
-                                    padding: '10px 12px',
-                                    background: 'none', border: 'none',
-                                    cursor: 'pointer', textAlign: 'left',
-                                    fontSize: 12, color: '#333', whiteSpace: 'nowrap',
+                                    display: 'block', width: '100%', padding: '10px 12px',
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    textAlign: 'left', fontSize: 12, color: '#333', whiteSpace: 'nowrap',
                                   }}
                                 >
                                   📸 직관 인증하기
@@ -402,14 +206,9 @@ const KboCalendarActivity: ActivityComponentType = () => {
                         <button
                           onClick={() => setModalDate(dateStr)}
                           style={{
-                            marginTop: 'auto',
-                            padding: '2px 0',
-                            fontSize: 9,
-                            color: '#3182ce',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            textAlign: 'left',
+                            marginTop: 'auto', padding: '2px 0', fontSize: 9,
+                            color: '#3182ce', background: 'none', border: 'none',
+                            cursor: 'pointer', textAlign: 'left',
                           }}
                         >
                           자세히 보기
@@ -432,6 +231,12 @@ const KboCalendarActivity: ActivityComponentType = () => {
           onClose={() => setModalDate(null)}
         />
       )}
+
+      <RankingDrawer
+        open={rankingOpen}
+        favoriteTeam={user?.favorite_team}
+        onClose={() => setRankingOpen(false)}
+      />
 
       <TabBar activeTab="calendar" />
     </div>

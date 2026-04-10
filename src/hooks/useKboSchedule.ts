@@ -7,7 +7,7 @@ export interface Game {
   stadium: string
   home_score: number | null
   away_score: number | null
-  status: 'scheduled' | 'done'
+  status: 'scheduled' | 'done' | 'cancelled'
 }
 
 async function fetchKboSchedule(year: number, month: number): Promise<Game[]> {
